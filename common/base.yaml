@@ -1,0 +1,483 @@
+# Paquete comun a todas las variantes (1-4 canales) del Sonoff T5 US.
+# No define reles, touchfields ni particiones de canal: eso vive en channels_N.yaml.
+#
+# GPIOs: son los del hardware real del usuario (T5 US, tira ambiente de 32 LEDs en
+# GPIO33). NO son los defaults del proyecto sonoff-tx-ultimate-for-esphome (28 LEDs,
+# GPIO13) - ver README.md.
+
+substitutions:
+  name: "sonoff-t5"
+  friendly_name: "Sonoff T5"
+  ip: "XX.XX.XX.XX"
+
+  relay_count: "3"
+
+  brightness_on: "40%"
+  brightness_nightlight: "0%"
+
+  vibra_time: 150ms
+  button_on_time: 500ms
+  long_press_time: 500ms
+
+  button_brightness: "0.7"
+  button_color: "{0,0,100}"
+
+  nightlight: "on"
+  nightlight_brightness: "0.2"
+  nightlight_color: "{80,70,0}"
+
+  latitude: "0.000000°"
+  longitude: "0.000000°"
+
+  touch_brightness: "1"
+  touch_color: "{0,100,100}"
+  touch_effect: "None"
+
+  long_press_brightness: "1"
+  long_press_color: "{100,0,0}"
+
+  multi_touch_brightness: "1"
+  multi_touch_color: "{0,0,0}"
+  multi_touch_effect: "rainbow fast"
+
+  swipe_left_brightness: "1"
+  swipe_left_color: "{0,100,0}"
+
+  swipe_right_brightness: "1"
+  swipe_right_color: "{100,0,70}"
+
+  # Reles (GPIO18/17/27 = los 3 usados hoy; GPIO23 = 4to rele, sin confirmar en hardware real)
+  relay_1_pin: GPIO18
+  relay_2_pin: GPIO17
+  relay_3_pin: GPIO27
+  relay_4_pin: GPIO23
+
+  vibra_motor_pin: GPIO21
+  touchpanel_power_pin: GPIO5
+
+  # Tira "Luz Ambiente" (32 LEDs direccionables, usada tambien como indicador por canal)
+  ambient_led_pin: GPIO33
+  ambient_led_count: "32"
+  # LED interno pequeno (no direccionable a nivel de canal, solo decorativo/status)
+  status_led_pin: GPIO13
+
+  uart_tx_pin: GPIO19
+  uart_rx_pin: GPIO22
+
+  audio_bclk_pin: GPIO2
+  audio_lrclk_pin: GPIO4
+  audio_sdata_pin: GPIO15
+  audio_mute_pin: GPIO26
+
+  # Desacople toque -> rele por canal. "false" = el panel solo avisa a HA, no conmuta el rele.
+  toggle_relay_1_on_touch: "true"
+  toggle_relay_2_on_touch: "true"
+  toggle_relay_3_on_touch: "true"
+  toggle_relay_4_on_touch: "true"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: -100.0
+    then:
+      - binary_sensor.template.publish:
+          id: swipe_left
+          state: OFF
+      - binary_sensor.template.publish:
+          id: swipe_right
+          state: OFF
+      - binary_sensor.template.publish:
+          id: multi_touch
+          state: OFF
+      - binary_sensor.template.publish:
+          id: long_press
+          state: OFF
+      - script.execute: refresh_led_default
+      - script.execute: refresh_nightlight
+
+esp32:
+  board: esp32dev
+
+# Copia vendorizada en components/tx_ultimate_touch (ver ese folder para el
+# origen/licencia). Se usa "local" en vez de "git" para no depender de que el
+# repo de SmartHome-yourself no cambie/desaparezca.
+external_components:
+  - source:
+      type: local
+      path: components
+
+logger:
+#  level: DEBUG
+
+api:
+  encryption:
+    key: "xxxx"
+
+ota:
+  - platform: esphome
+    password: "xxxx"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${name}
+    password: "xxxx"
+
+  use_address: ${ip}
+
+## Enable Bluetooth Proxy
+#esp32_ble_tracker:
+#    scan_parameters:
+#      interval: 1100ms
+#      window: 1100ms
+#      active: true
+
+#bluetooth_proxy:
+#  active: true
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # cada 5 minutos
+      - seconds: 0
+        minutes: /5
+        then:
+          - script.execute: refresh_nightlight
+
+sun:
+  latitude: ${latitude}
+  longitude: ${longitude}
+
+uart:
+  id: my_uart
+  tx_pin: ${uart_tx_pin}
+  rx_pin: ${uart_rx_pin}
+  baud_rate: 115200
+
+globals:
+  - id: touch_pos
+    type: int
+    restore_value: no
+    initial_value: "-1"
+  - id: long_press_fired
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: button_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${button_color}
+  - id: nightlight_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${nightlight_color}
+  - id: touch_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${touch_color}
+  - id: long_press_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${long_press_color}
+  - id: multi_touch_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${multi_touch_color}
+  - id: swipe_left_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${swipe_left_color}
+  - id: swipe_right_color
+    type: int[3]
+    restore_value: no
+    initial_value: ${swipe_right_color}
+
+tx_ultimate_touch:
+  id: tx_touch
+  uart: my_uart
+
+  on_press:
+    - globals.set:
+        id: touch_pos
+        value: !lambda "return touch.x;"
+    - globals.set:
+        id: long_press_fired
+        value: "false"
+    - script.execute: led_on_touch
+    - script.execute: long_press_watch
+    - lambda: >
+        ESP_LOGD("tx_ultimate_touch.on_press", "Touch Position: %d / State: %d", touch.x, touch.state);
+
+  on_release:
+    - script.stop: long_press_watch
+    - script.execute:
+        id: handle_release
+        pos: !lambda "return touch.x;"
+    - switch.turn_on: vibra
+    - lambda: >
+        ESP_LOGD("tx_ultimate_touch.on_release", "Release Position: %d / State: %d", touch.x, touch.state);
+
+  on_swipe_left:
+    - script.execute: led_on_swipe_left
+    - switch.turn_on: vibra
+    - binary_sensor.template.publish:
+        id: swipe_left
+        state: ON
+    - delay: ${button_on_time}
+    - binary_sensor.template.publish:
+        id: swipe_left
+        state: OFF
+
+  on_swipe_right:
+    - script.execute: led_on_swipe_right
+    - switch.turn_on: vibra
+    - binary_sensor.template.publish:
+        id: swipe_right
+        state: ON
+    - delay: ${button_on_time}
+    - binary_sensor.template.publish:
+        id: swipe_right
+        state: OFF
+
+  on_full_touch_release:
+    - script.execute: led_on_full_touch
+    - switch.turn_on: vibra
+    - binary_sensor.template.publish:
+        id: multi_touch
+        state: ON
+    - delay: ${button_on_time}
+    - binary_sensor.template.publish:
+        id: multi_touch
+        state: OFF
+
+  on_long_touch_release:
+    # Long-press GLOBAL del propio componente (5s, no distingue canal).
+    # El long-press POR BOTON configurable (${long_press_time}) vive en channels_N.yaml.
+    - script.execute: led_on_long_touch
+    - switch.turn_on: vibra
+    - binary_sensor.template.publish:
+        id: long_press
+        state: ON
+    - delay: ${button_on_time}
+    - binary_sensor.template.publish:
+        id: long_press
+        state: OFF
+
+binary_sensor:
+  - platform: template
+    id: swipe_left
+    name: "Swipe left"
+  - platform: template
+    id: swipe_right
+    name: "Swipe right"
+  - platform: template
+    id: multi_touch
+    name: "Multi touch"
+  - platform: template
+    id: long_press
+    name: "Long press (5s)"
+
+switch:
+  - platform: gpio
+    id: vibra
+    name: "${friendly_name} Vibration"
+    pin: ${vibra_motor_pin}
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - delay: ${vibra_time}
+      - switch.turn_off: vibra
+
+  - platform: gpio
+    id: touch_power
+    name: "touch panel power"
+    pin:
+      number: ${touchpanel_power_pin}
+      inverted: true
+    internal: true
+    restore_mode: ALWAYS_ON
+
+  - platform: template
+    id: nightlight
+    name: "Nightlight (auto)"
+    internal: true
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+  - platform: template
+    id: nightlight_active
+    name: "Nightlight"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+  - platform: restart
+    name: "${friendly_name} Restart"
+
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: ${status_led_pin}
+    num_leds: 1
+    name: "NeoPixel 13"
+    internal: true
+
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: ${ambient_led_pin}
+    num_leds: ${ambient_led_count}
+    name: "Luz Ambiente"
+    id: rgb_light
+    effects:
+      - addressable_rainbow:
+          name: "rainbow fast"
+          speed: 50
+      - pulse:
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+      - pulse:
+          name: "Slow Pulse"
+          update_interval: 2s
+      - addressable_scan:
+      - addressable_scan:
+          name: Scan Effect With Custom Values
+          move_interval: 100ms
+          scan_width: 3
+      - addressable_twinkle:
+      - addressable_twinkle:
+          name: Twinkle Effect With Custom Values
+          twinkle_probability: 5%
+          progress_interval: 4ms
+      - addressable_random_twinkle:
+      - addressable_random_twinkle:
+          name: Random Twinkle Effect With Custom Values
+          twinkle_probability: 20%
+          progress_interval: 32ms
+      - addressable_fireworks:
+      - addressable_fireworks:
+          name: Fireworks Effect With Custom Values
+          update_interval: 32ms
+          spark_probability: 10%
+          use_random_color: false
+          fade_out_rate: 120
+      - addressable_flicker:
+      - addressable_flicker:
+          name: Flicker Effect With Custom Values
+          update_interval: 16ms
+          intensity: 5%
+
+i2s_audio:
+  id: audio_i2s
+  i2s_bclk_pin: ${audio_bclk_pin}
+  i2s_lrclk_pin: ${audio_lrclk_pin}
+
+media_player:
+  - platform: i2s_audio
+    id: media_out
+    name: Speaker
+    dac_type: external
+    mode: mono
+    i2s_dout_pin: ${audio_sdata_pin}
+    i2s_audio_id: audio_i2s
+    i2s_comm_fmt: lsb
+    mute_pin:
+      number: ${audio_mute_pin}
+      inverted: true
+
+script:
+  # Enciende/apaga la tira completa como aviso transitorio de gesto, y luego
+  # restaura el estado normal (reles + nightlight) via refresh_led_default.
+  - id: led_on_touch
+    mode: restart
+    then:
+      - light.turn_on:
+          id: rgb_light
+          brightness: ${touch_brightness}
+          red: !lambda "return id(touch_color)[0]/100.0;"
+          green: !lambda "return id(touch_color)[1]/100.0;"
+          blue: !lambda "return id(touch_color)[2]/100.0;"
+          effect: ${touch_effect}
+      - delay: 1s
+      - script.execute: refresh_led_default
+
+  - id: led_on_swipe_left
+    mode: restart
+    then:
+      - light.turn_on:
+          id: rgb_light
+          brightness: ${swipe_left_brightness}
+          red: !lambda "return id(swipe_left_color)[0]/100.0;"
+          green: !lambda "return id(swipe_left_color)[1]/100.0;"
+          blue: !lambda "return id(swipe_left_color)[2]/100.0;"
+      - delay: 1s
+      - script.execute: refresh_led_default
+
+  - id: led_on_swipe_right
+    mode: restart
+    then:
+      - light.turn_on:
+          id: rgb_light
+          brightness: ${swipe_right_brightness}
+          red: !lambda "return id(swipe_right_color)[0]/100.0;"
+          green: !lambda "return id(swipe_right_color)[1]/100.0;"
+          blue: !lambda "return id(swipe_right_color)[2]/100.0;"
+      - delay: 1s
+      - script.execute: refresh_led_default
+
+  - id: led_on_full_touch
+    mode: restart
+    then:
+      - light.turn_on:
+          id: rgb_light
+          brightness: ${multi_touch_brightness}
+          red: !lambda "return id(multi_touch_color)[0]/100.0;"
+          green: !lambda "return id(multi_touch_color)[1]/100.0;"
+          blue: !lambda "return id(multi_touch_color)[2]/100.0;"
+          effect: ${multi_touch_effect}
+      - delay: 1s
+      - script.execute: refresh_led_default
+
+  - id: led_on_long_touch
+    mode: restart
+    then:
+      - light.turn_on:
+          id: rgb_light
+          brightness: ${long_press_brightness}
+          red: !lambda "return id(long_press_color)[0]/100.0;"
+          green: !lambda "return id(long_press_color)[1]/100.0;"
+          blue: !lambda "return id(long_press_color)[2]/100.0;"
+      - delay: 1s
+      - script.execute: refresh_led_default
+
+  - id: refresh_nightlight
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return "${nightlight}" == "on";'
+          then:
+            - if:
+                condition:
+                  - sun.is_below_horizon:
+                then:
+                  - switch.turn_on: nightlight
+                else:
+                  - switch.turn_off: nightlight

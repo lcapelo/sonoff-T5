@@ -1,0 +1,106 @@
+# Variante de 1 canal.
+# NOTA: no hay hardware de 1 canal para calibrar los LEDs, así que el canal usa
+# la tira completa (0-31) como indicador. Ajusta el rango si tu unidad física
+# solo ilumina una zona para el boton.
+
+switch:
+  - platform: gpio
+    id: relay_1
+    name: "${channel_1}"
+    pin: ${relay_1_pin}
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+binary_sensor:
+  - platform: template
+    id: touchfield_1
+    name: "Boton ${channel_1}"
+  - platform: template
+    id: long_press_1
+    name: "Long ${channel_1}"
+
+light:
+  - platform: partition
+    id: light_channel_1
+    name: "Led ${channel_1}"
+    segments:
+      - id: rgb_light
+        from: 0
+        to: 31
+
+script:
+  # Un solo boton: cualquier toque mantenido pertenece al canal 1.
+  - id: long_press_watch
+    mode: restart
+    then:
+      - delay: ${long_press_time}
+      - globals.set:
+          id: long_press_fired
+          value: "true"
+      - binary_sensor.template.publish:
+          id: long_press_1
+          state: ON
+      - light.turn_on:
+          id: light_channel_1
+          brightness: ${long_press_brightness}
+          red: !lambda "return id(long_press_color)[0]/100.0;"
+          green: !lambda "return id(long_press_color)[1]/100.0;"
+          blue: !lambda "return id(long_press_color)[2]/100.0;"
+      - switch.turn_on: vibra
+
+  - id: handle_release
+    mode: restart
+    parameters:
+      pos: int
+    then:
+      - if:
+          condition:
+            lambda: "return id(long_press_fired);"
+          then:
+            - binary_sensor.template.publish:
+                id: long_press_1
+                state: OFF
+            - script.execute: refresh_led_default
+          else:
+            - if:
+                condition:
+                  lambda: "return ${toggle_relay_1_on_touch};"
+                then:
+                  - switch.toggle: relay_1
+            - binary_sensor.template.publish:
+                id: touchfield_1
+                state: ON
+            - delay: ${button_on_time}
+            - binary_sensor.template.publish:
+                id: touchfield_1
+                state: OFF
+
+  - id: refresh_led_default
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(relay_1).state;"
+          then:
+            - light.turn_on:
+                id: light_channel_1
+                brightness: ${button_brightness}
+                red: !lambda "return id(button_color)[0]/100.0;"
+                green: !lambda "return id(button_color)[1]/100.0;"
+                blue: !lambda "return id(button_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
+                then:
+                  - light.turn_on:
+                      id: light_channel_1
+                      brightness: ${nightlight_brightness}
+                      red: !lambda "return id(nightlight_color)[0]/100.0;"
+                      green: !lambda "return id(nightlight_color)[1]/100.0;"
+                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
+                else:
+                  - light.turn_off: light_channel_1

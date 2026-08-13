@@ -1,0 +1,27 @@
+# Sonoff T5 US (3 canales) - dispositivo real del usuario.
+# Para flashear otra variante (1, 2 o 4 canales), copia este archivo y cambia
+# relay_count + los channel_N que uses. Ver README.md para detalles.
+
+substitutions:
+  name: "sonoff-t5-sala"
+  friendly_name: "Sonoff T5 Sala"
+  ip: "XX.XX.XX.XX"
+
+  relay_count: "3"
+
+  channel_1: "Luz Derecha"
+  channel_2: "Luz Centro"
+  channel_3: "Luz Izquierda"
+
+  # Desacople toque -> rele por canal (poner "false" para usar ese boton solo
+  # como pulsador que avisa a Home Assistant, sin conmutar el rele local).
+  toggle_relay_1_on_touch: "true"
+  toggle_relay_2_on_touch: "true"
+  toggle_relay_3_on_touch: "true"
+
+  # Umbral de mantener pulsado para el long-press por boton.
+  long_press_time: 500ms
+
+packages:
+  base: !include common/base.yaml
+  channels: !include common/channels_${relay_count}.yaml
