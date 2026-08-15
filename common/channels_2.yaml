@@ -56,25 +56,6 @@ light:
         from: 4
         to: 19
 
-  - platform: partition
-    id: light_right
-    name: "Led Derecha"
-    segments:
-      - id: rgb_light
-        from: 0
-        to: 8
-      - id: rgb_light
-        from: 31
-        to: 31
-
-  - platform: partition
-    id: light_left
-    name: "Led Izquierda"
-    segments:
-      - id: rgb_light
-        from: 15
-        to: 24
-
 script:
   # touch.x va de 1 a 10; con 2 botones el corte queda en la mitad (pos<=5).
   - id: long_press_watch

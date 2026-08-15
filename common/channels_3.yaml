@@ -83,25 +83,6 @@ light:
         from: 6
         to: 17
 
-  - platform: partition
-    id: light_right
-    name: "Led Derecha"
-    segments:
-      - id: rgb_light
-        from: 0
-        to: 8
-      - id: rgb_light
-        from: 31
-        to: 31
-
-  - platform: partition
-    id: light_left
-    name: "Led Izquierda"
-    segments:
-      - id: rgb_light
-        from: 15
-        to: 24
-
 script:
   # Toque mantenido > ${long_press_time} en la posicion pos -> long_press_N ON
   # (si se suelta antes, on_release hace script.stop y esto nunca corre: toque corto).

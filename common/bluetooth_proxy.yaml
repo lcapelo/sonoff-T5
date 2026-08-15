@@ -1,0 +1,5 @@
+# Requiere esp32_ble_tracker tambien importado (common/ble_tracker.yaml).
+bluetooth_proxy:
+  active: true
+  cache_services: true
+  connection_slots: 3

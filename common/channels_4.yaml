@@ -4,9 +4,10 @@
 # hardware real de 4 canales/botones. Este archivo es un ANDAMIAJE best-effort:
 # - Reles: GPIO18/17/27/23 (los 3 primeros son de tu hardware confirmado; el 4to
 #   esta documentado en el SDK de Sonoff pero sin confirmar en campo).
-# - Umbrales de touch.x y particiones de LED (division en 4 cuartos de la tira de
-#   32) son una extrapolacion, no algo calibrado contra un panel tactil real de
-#   4 zonas. Verifica y ajusta si consigues este hardware.
+# - Umbrales de touch.x: extrapolacion, no calibrada contra un panel real de 4 zonas.
+# - Particiones de LED: canal_1=23-31+0, canal_2=1-3+20-22, canal_3=4-6+17-19,
+#   canal_4=7-16 (valores dados a mano, siguiendo el mismo patron de arcos
+#   simetricos que channels_2/3).
 
 switch:
   - platform: gpio
@@ -82,32 +83,41 @@ light:
     name: "Led ${channel_1}"
     segments:
       - id: rgb_light
+        from: 23
+        to: 31
+      - id: rgb_light
         from: 0
-        to: 7
+        to: 0
 
   - platform: partition
     id: light_channel_2
     name: "Led ${channel_2}"
     segments:
       - id: rgb_light
-        from: 8
-        to: 15
+        from: 1
+        to: 3
+      - id: rgb_light
+        from: 20
+        to: 22
 
   - platform: partition
     id: light_channel_3
     name: "Led ${channel_3}"
     segments:
       - id: rgb_light
-        from: 16
-        to: 23
+        from: 4
+        to: 6
+      - id: rgb_light
+        from: 17
+        to: 19
 
   - platform: partition
     id: light_channel_4
     name: "Led ${channel_4}"
     segments:
       - id: rgb_light
-        from: 24
-        to: 31
+        from: 7
+        to: 16
 
 script:
   # touch.x va de 1 a 10; con 4 botones se reparte en cuartos: <=2 / <=5 / <=7 / resto.

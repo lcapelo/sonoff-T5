@@ -22,6 +22,22 @@ substitutions:
   # Umbral de mantener pulsado para el long-press por boton.
   long_press_time: 500ms
 
+  # Orientacion de montaje: "vertical" u "horizontal" (rotado 90 grados).
+  # Cambia los nombres de los 4 lados de LED y de los sensores de swipe.
+  orientation: "vertical"
+
+  # Solo si importas common/nightlight_auto.yaml: tu ubicacion real, para que
+  # el calculo de amanecer/atardecer sea correcto (por defecto son 0,0 dummy).
+  # latitude: "-34.603722°"
+  # longitude: "-58.381592°"
+
 packages:
   base: !include common/base.yaml
   channels: !include common/channels_${relay_count}.yaml
+  orientation: !include common/orientation_${orientation}.yaml
+
+  # Fixtures opcionales: comenta la linea para no incluir esa fixture.
+  ble_tracker: !include common/ble_tracker.yaml
+  # bluetooth_proxy: !include common/bluetooth_proxy.yaml
+  web_server: !include common/web_server.yaml
+  # nightlight_auto: !include common/nightlight_auto.yaml
