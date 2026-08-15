@@ -22,12 +22,8 @@ substitutions:
   button_brightness: "0.7"
   button_color: "{0,0,100}"
 
-  nightlight: "on"
   nightlight_brightness: "0.2"
   nightlight_color: "{80,70,0}"
-
-  latitude: "0.000000°"
-  longitude: "0.000000°"
 
   touch_brightness: "0"
   touch_color: "{0,100,0}"
@@ -94,7 +90,8 @@ esphome:
           id: long_press
           state: OFF
       - script.execute: refresh_led_default
-      - script.execute: refresh_nightlight
+      # El script refresh_nightlight (si esta importado, ver
+      # common/nightlight_auto.yaml) agrega su propia entrada de on_boot.
 
 esp32:
   board: esp32dev
@@ -134,22 +131,6 @@ wifi:
 # esp32_ble_tracker / bluetooth_proxy / web_server son opcionales y viven en
 # common/ble_tracker.yaml, bluetooth_proxy.yaml, web_server.yaml. Se habilitan
 # importandolos (o no) desde el packages: de sonoff-t5.yaml.
-
-time:
-  - platform: homeassistant
-    id: homeassistant_time
-  - platform: sntp
-    id: sntp_time
-    on_time:
-      # cada 5 minutos
-      - seconds: 0
-        minutes: /5
-        then:
-          - script.execute: refresh_nightlight
-
-sun:
-  latitude: ${latitude}
-  longitude: ${longitude}
 
 uart:
   id: my_uart
@@ -466,18 +447,7 @@ script:
           blue: !lambda "return id(long_press_color)[2]/100.0;"
       - delay: 1s
       - script.execute: refresh_led_default
-
-  - id: refresh_nightlight
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: 'return "${nightlight}" == "on";'
-          then:
-            - if:
-                condition:
-                  - sun.is_below_horizon:
-                then:
-                  - switch.turn_on: nightlight
-                else:
-                  - switch.turn_off: nightlight
+  # refresh_nightlight (automatizacion por sol) vive en common/nightlight_auto.yaml,
+  # si esta importado. El switch "nightlight" (arriba, en switch:) se queda
+  # siempre apagado si no lo importas, asi que el OR con nightlight_active en
+  # refresh_led_default de channels_N.yaml sigue compilando y funcionando bien.
