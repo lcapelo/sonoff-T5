@@ -15,7 +15,7 @@ substitutions:
   brightness_on: "40%"
   brightness_nightlight: "0%"
 
-  vibra_time: 150ms
+  vibra_time: 100ms
   button_on_time: 500ms
   long_press_time: 500ms
 
@@ -29,8 +29,8 @@ substitutions:
   latitude: "0.000000°"
   longitude: "0.000000°"
 
-  touch_brightness: "1"
-  touch_color: "{0,100,100}"
+  touch_brightness: "0"
+  touch_color: "{0,100,0}"
   touch_effect: "None"
 
   long_press_brightness: "1"
@@ -38,13 +38,13 @@ substitutions:
 
   multi_touch_brightness: "1"
   multi_touch_color: "{0,0,0}"
-  multi_touch_effect: "rainbow fast"
+  multi_touch_effect: "None"
 
   swipe_left_brightness: "1"
-  swipe_left_color: "{0,100,0}"
+  swipe_left_color: "{0,100,0}" #verde
 
   swipe_right_brightness: "1"
-  swipe_right_color: "{100,0,70}"
+  swipe_right_color: "{100,0,70}" # rosita
 
   # Reles (GPIO18/17/27 = los 3 usados hoy; GPIO23 = 4to rele, sin confirmar en hardware real)
   relay_1_pin: GPIO18
@@ -98,25 +98,27 @@ esphome:
 
 esp32:
   board: esp32dev
+  framework:
+    type: arduino #esp-idf 
 
 # Copia vendorizada en components/tx_ultimate_touch (ver ese folder para el
 # origen/licencia). Se usa "local" en vez de "git" para no depender de que el
 # repo de SmartHome-yourself no cambie/desaparezca.
 external_components:
-  - source:
-      type: local
-      path: components
+  - source: github://lcapelo/sonoff-T5@refactor_component
+    #   type: local
+    #   path: config/components
 
 logger:
 #  level: DEBUG
 
 api:
-  encryption:
-    key: "xxxx"
+#  encryption:
+#    key: "xxxx"
 
 ota:
   - platform: esphome
-    password: "xxxx"
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -124,8 +126,8 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: ${name}
-    password: "xxxx"
+    ssid: "${friendly_name} Fallback Hotspot"
+    password: !secret wifi_ap_password
 
   use_address: ${ip}
 
@@ -389,18 +391,22 @@ i2s_audio:
   i2s_bclk_pin: ${audio_bclk_pin}
   i2s_lrclk_pin: ${audio_lrclk_pin}
 
-media_player:
+speaker:
   - platform: i2s_audio
-    id: media_out
-    name: Speaker
-    dac_type: external
-    mode: mono
-    i2s_dout_pin: ${audio_sdata_pin}
+    id: audio_speaker
     i2s_audio_id: audio_i2s
-    i2s_comm_fmt: lsb
-    mute_pin:
-      number: ${audio_mute_pin}
-      inverted: true
+    i2s_dout_pin: ${audio_sdata_pin}
+    dac_type: external
+    i2s_mode: primary
+    i2s_comm_fmt: i2s_lsb
+
+media_player:
+  - platform: speaker
+    id: media_out
+    name: "Speaker"
+    announcement_pipeline:
+      speaker: audio_speaker
+
 
 script:
   # Enciende/apaga la tira completa como aviso transitorio de gesto, y luego
