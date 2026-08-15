@@ -293,6 +293,19 @@ switch:
     internal: true
     restore_mode: ALWAYS_ON
 
+  # speaker: platform: i2s_audio (nuevo, reemplaza al media_player: platform:
+  # i2s_audio deprecado) ya no tiene mute_pin propio, asi que el pin de
+  # enable/mute del ampli (GPIO26, activo en bajo) se maneja aca a mano,
+  # siempre habilitado.
+  - platform: gpio
+    id: audio_amp_enable
+    name: "Audio amp enable"
+    pin:
+      number: ${audio_mute_pin}
+      inverted: true
+    internal: true
+    restore_mode: ALWAYS_ON
+
   - platform: template
     id: nightlight
     name: "Nightlight (auto)"
@@ -431,9 +444,6 @@ speaker:
     channel: mono
     i2s_mode: primary
     i2s_comm_fmt: i2s_lsb
-    mute_pin:
-      number: ${audio_mute_pin}
-      inverted: true
 
   # media_player (platform: speaker) exige que announcement_pipeline y
   # media_pipeline apunten a un speaker DISTINTO cada uno ("must output to a

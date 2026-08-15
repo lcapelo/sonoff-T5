@@ -183,9 +183,11 @@ generales, no por canal.)*
   compila sobre Arduino). Como `announcement_pipeline` y `media_pipeline`
   deben apuntar a un speaker distinto cada uno, se agregó un
   `speaker: platform: mixer` que junta las dos entradas virtuales en el mismo
-  DAC físico (`audio_speaker`). También se agregó el `mute_pin` (GPIO26,
-  invertido) que faltaba en la migración — sin él el ampli queda muteado y no
-  suena nada.
+  DAC físico (`audio_speaker`). El `speaker: platform: i2s_audio` nuevo **ya
+  no tiene `mute_pin`** propio (opción del viejo `media_player` deprecado, no
+  existe en el schema actual) — el pin de enable/mute del ampli (GPIO26,
+  invertido) se maneja con un `switch: platform: gpio` propio
+  (`audio_amp_enable`, siempre encendido).
 - **Luz ambiente**: la tira de 32 LEDs con todos sus efectos direccionables
   (rainbow, pulse, scan, twinkle, fireworks, flicker), controlable como luz
   normal en HA. Los canales usan particiones de esa misma tira como indicador
