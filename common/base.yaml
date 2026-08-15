@@ -71,6 +71,17 @@ substitutions:
   toggle_relay_3_on_touch: "true"
   toggle_relay_4_on_touch: "true"
 
+  # Orientacion de montaje: "vertical" (panel mas alto que ancho, como esta hoy)
+  # u "horizontal" (rotado 90 grados). Selecciona common/orientation_${orientation}.yaml
+  # desde sonoff-t5.yaml, que sobreescribe los *_name de abajo.
+  orientation: "vertical"
+  led_top_name: "Led Arriba"
+  led_bottom_name: "Led Abajo"
+  led_left_name: "Led Izquierda"
+  led_right_name: "Led Derecha"
+  swipe_a_name: "Swipe Top"
+  swipe_b_name: "Swipe Bottom"
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -251,10 +262,10 @@ tx_ultimate_touch:
 binary_sensor:
   - platform: template
     id: swipe_left
-    name: "Swipe left"
+    name: "${swipe_a_name}"
   - platform: template
     id: swipe_right
-    name: "Swipe right"
+    name: "${swipe_b_name}"
   - platform: template
     id: multi_touch
     name: "Multi touch"
@@ -360,6 +371,50 @@ light:
           name: Flicker Effect With Custom Values
           update_interval: 16ms
           intensity: 5%
+
+  # Los 4 lados del anillo de 32 LEDs, compartidos por TODAS las variantes
+  # (1-4 canales). Layout real del T5 US (visto de frente):
+  #   ---30-29-28-27-26-25---
+  #   31---------------------24
+  #   0----------------------23
+  #   1----------------------22
+  #   ........................
+  #   8----------------------15
+  #   ----9-10-11-12-13-14----
+  - platform: partition
+    id: light_top
+    name: "${led_top_name}"
+    segments:
+      - id: rgb_light
+        from: 25
+        to: 30
+
+  - platform: partition
+    id: light_bottom
+    name: "${led_bottom_name}"
+    segments:
+      - id: rgb_light
+        from: 9
+        to: 14
+
+  - platform: partition
+    id: light_right
+    name: "${led_right_name}"
+    segments:
+      - id: rgb_light
+        from: 0
+        to: 8
+      - id: rgb_light
+        from: 31
+        to: 31
+
+  - platform: partition
+    id: light_left
+    name: "${led_left_name}"
+    segments:
+      - id: rgb_light
+        from: 15
+        to: 24
 
 i2s_audio:
   id: audio_i2s
