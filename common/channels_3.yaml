@@ -1,5 +1,4 @@
-# Variante de 3 canales (hardware real del usuario).
-# Segmentos de LED = los "conocidos-buenos" del t5x3.yaml original: NO recalibrar.
+# Variante de 3 canales 
 
 switch:
   - platform: gpio
@@ -59,11 +58,11 @@ light:
     name: "Led ${channel_1}"
     segments:
       - id: rgb_light
-        from: 22
-        to: 31
-      - id: rgb_light
         from: 0
         to: 1
+      - id: rgb_light
+        from: 22
+        to: 31
 
   - platform: partition
     id: light_channel_2
@@ -101,7 +100,7 @@ light:
     segments:
       - id: rgb_light
         from: 15
-        to: 23
+        to: 24
 
 script:
   # Toque mantenido > ${long_press_time} en la posicion pos -> long_press_N ON
