@@ -1,7 +1,4 @@
 # Variante de 2 canales.
-# NOTA: no hay hardware de 2 canales para calibrar los LEDs; se divide la tira
-# de 32 en dos mitades (0-15 / 16-31) como default razonable. Ajusta si tu
-# unidad fisica ilumina otras zonas para cada boton.
 
 switch:
   - platform: gpio
@@ -46,15 +43,37 @@ light:
     segments:
       - id: rgb_light
         from: 0
-        to: 15
+        to: 3
+      - id: rgb_light
+        from: 20
+        to: 31
 
   - platform: partition
     id: light_channel_2
     name: "Led ${channel_2}"
     segments:
       - id: rgb_light
-        from: 16
+        from: 4
+        to: 19
+
+  - platform: partition
+    id: light_right
+    name: "Led Derecha"
+    segments:
+      - id: rgb_light
+        from: 0
+        to: 8
+      - id: rgb_light
+        from: 31
         to: 31
+
+  - platform: partition
+    id: light_left
+    name: "Led Izquierda"
+    segments:
+      - id: rgb_light
+        from: 15
+        to: 24
 
 script:
   # touch.x va de 1 a 10; con 2 botones el corte queda en la mitad (pos<=5).
