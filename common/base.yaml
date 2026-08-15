@@ -159,6 +159,30 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  # Snapshot de "Luz Ambiente" (rgb_light) tomado justo antes de cada flash de
+  # gesto, para poder restaurarlo despues (ver save_ambient_state/
+  # restore_ambient_state en script:).
+  - id: ambient_was_on
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: ambient_brightness
+    type: float
+    restore_value: no
+    initial_value: "1.0"
+  - id: ambient_red
+    type: float
+    restore_value: no
+    initial_value: "1.0"
+  - id: ambient_green
+    type: float
+    restore_value: no
+    initial_value: "1.0"
+  - id: ambient_blue
+    type: float
+    restore_value: no
+    initial_value: "1.0"
+
   - id: button_color
     type: int[3]
     restore_value: no
@@ -446,11 +470,47 @@ media_player:
 
 
 script:
-  # Enciende/apaga la tira completa como aviso transitorio de gesto, y luego
-  # restaura el estado normal (reles + nightlight) via refresh_led_default.
+  # Guarda el estado actual de "Luz Ambiente" (rgb_light) ANTES de pisarlo con
+  # el flash de gesto. Se usa remote_values (el estado objetivo) y no
+  # current_values (que cambia continuamente durante una transicion).
+  - id: save_ambient_state
+    mode: restart
+    then:
+      - lambda: |-
+          id(ambient_was_on) = id(rgb_light).remote_values.is_on();
+          id(ambient_brightness) = id(rgb_light).remote_values.get_brightness();
+          id(ambient_red) = id(rgb_light).remote_values.get_red();
+          id(ambient_green) = id(rgb_light).remote_values.get_green();
+          id(ambient_blue) = id(rgb_light).remote_values.get_blue();
+
+  # Restaura lo guardado por save_ambient_state. Se llama SIEMPRE antes de
+  # refresh_led_default: como las particiones de canal cubren el 100% de los
+  # pixeles, refresh_led_default repinta todo despues igual, asi que no
+  # importa que este paso "pise" momentaneamente esos pixeles -- lo unico que
+  # de verdad persiste de este paso es el on/off/color reportado de la
+  # entidad "Luz Ambiente" en HA, que queda correcto en vez de pegado en "on".
+  - id: restore_ambient_state
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(ambient_was_on);"
+          then:
+            - light.turn_on:
+                id: rgb_light
+                brightness: !lambda "return id(ambient_brightness);"
+                red: !lambda "return id(ambient_red);"
+                green: !lambda "return id(ambient_green);"
+                blue: !lambda "return id(ambient_blue);"
+          else:
+            - light.turn_off: rgb_light
+
+  # Aviso transitorio de gesto sobre "rgb_light" (la tira completa / entidad
+  # "Luz Ambiente").
   - id: led_on_touch
     mode: restart
     then:
+      - script.execute: save_ambient_state
       - light.turn_on:
           id: rgb_light
           brightness: ${touch_brightness}
@@ -459,11 +519,13 @@ script:
           blue: !lambda "return id(touch_color)[2]/100.0;"
           effect: ${touch_effect}
       - delay: 1s
+      - script.execute: restore_ambient_state
       - script.execute: refresh_led_default
 
   - id: led_on_swipe_left
     mode: restart
     then:
+      - script.execute: save_ambient_state
       - light.turn_on:
           id: rgb_light
           brightness: ${swipe_left_brightness}
@@ -471,11 +533,13 @@ script:
           green: !lambda "return id(swipe_left_color)[1]/100.0;"
           blue: !lambda "return id(swipe_left_color)[2]/100.0;"
       - delay: 1s
+      - script.execute: restore_ambient_state
       - script.execute: refresh_led_default
 
   - id: led_on_swipe_right
     mode: restart
     then:
+      - script.execute: save_ambient_state
       - light.turn_on:
           id: rgb_light
           brightness: ${swipe_right_brightness}
@@ -483,11 +547,13 @@ script:
           green: !lambda "return id(swipe_right_color)[1]/100.0;"
           blue: !lambda "return id(swipe_right_color)[2]/100.0;"
       - delay: 1s
+      - script.execute: restore_ambient_state
       - script.execute: refresh_led_default
 
   - id: led_on_full_touch
     mode: restart
     then:
+      - script.execute: save_ambient_state
       - light.turn_on:
           id: rgb_light
           brightness: ${multi_touch_brightness}
@@ -496,11 +562,13 @@ script:
           blue: !lambda "return id(multi_touch_color)[2]/100.0;"
           effect: ${multi_touch_effect}
       - delay: 1s
+      - script.execute: restore_ambient_state
       - script.execute: refresh_led_default
 
   - id: led_on_long_touch
     mode: restart
     then:
+      - script.execute: save_ambient_state
       - light.turn_on:
           id: rgb_light
           brightness: ${long_press_brightness}
@@ -508,6 +576,7 @@ script:
           green: !lambda "return id(long_press_color)[1]/100.0;"
           blue: !lambda "return id(long_press_color)[2]/100.0;"
       - delay: 1s
+      - script.execute: restore_ambient_state
       - script.execute: refresh_led_default
   # refresh_nightlight (automatizacion por sol) vive en common/nightlight_auto.yaml,
   # si esta importado. El switch "nightlight" (arriba, en switch:) se queda
