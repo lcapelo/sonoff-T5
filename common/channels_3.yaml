@@ -84,6 +84,37 @@ light:
         to: 17
 
 script:
+  # Cancela el long-press pendiente/activo cuando el gesto termina siendo un
+  # swipe, un multi-touch, o el long-press GLOBAL (5s) del componente -- estos
+  # 4 eventos NUNCA disparan on_release (el propio componente los desvia por
+  # su cuenta), asi que sin esto long_press_watch sigue corriendo y termina
+  # prendiendo el long_press_N del canal donde arranco el toque.
+  - id: cancel_long_press
+    mode: restart
+    then:
+      - script.stop: long_press_watch
+      - if:
+          condition:
+            lambda: "return id(long_press_fired);"
+          then:
+            - globals.set:
+                id: long_press_fired
+                value: "false"
+            - binary_sensor.template.publish:
+                id: long_press_1
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_2
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_3
+                state: OFF
+            - script.execute: refresh_led_default
+          else:
+            - globals.set:
+                id: long_press_fired
+                value: "false"
+
   # Toque mantenido > ${long_press_time} en la posicion pos -> long_press_N ON
   # (si se suelta antes, on_release hace script.stop y esto nunca corre: toque corto).
   - id: long_press_watch
