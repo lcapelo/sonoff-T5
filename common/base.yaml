@@ -107,10 +107,11 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    # ESP-IDF (no arduino): lo exige media_player/speaker (announcement_pipeline
-    # no corre sobre Arduino). esp32_rmt_led_strip funciona en ambos frameworks,
-    # asi que el cambio es por el audio, no por los LEDs.
-    type: esp-idf
+    # PRUEBA TEMPORAL: vuelto a arduino para probar neopixelbus (no corre
+    # bajo esp-idf). Esto obliga a deshabilitar el audio nuevo (mas abajo,
+    # comentado) porque media_player/speaker exige esp-idf. Volver a
+    # "esp-idf" + descomentar el bloque de audio cuando se reactive.
+    type: arduino
 
 # Copia vendorizada en components/tx_ultimate_touch (ver ese folder para el
 # origen/licencia). Se usa "local" en vez de "git" para no depender de que el
@@ -358,33 +359,27 @@ switch:
     name: "${friendly_name} Restart"
 
 light:
-  # default_transition_length: 0s en TODAS las luces (aca y en las particiones
-  # de channels_N.yaml): sin esto, cada light.turn_on dispara una animacion de
-  # crossfade de 1s (default de ESPHome) que reescribe la tira varias veces
-  # por segundo. Con varias particiones prendiendo/apagando seguido (touch,
-  # refresh_led_default, un long-press con dimming desde HA, etc.) eso termina
-  # en varias transiciones concurrentes escribiendo al mismo periferico RMT
-  # fisico a la vez -- causa muy probable de un crash "Double exception"
-  # observado en campo.
-  - platform: esp32_rmt_led_strip
+  # PRUEBA TEMPORAL: vuelto a neopixelbus (requiere framework: arduino, ver
+  # esp32: arriba) para descartar si esp32_rmt_led_strip es la causa de que
+  # la tira no responda. default_transition_length: 0s se mantiene (sigue
+  # siendo valido en neopixelbus y evita transiciones concurrentes).
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
     pin: ${status_led_pin}
     num_leds: 1
-    chipset: WS2812
-    rgb_order: GRB
     name: "NeoPixel 13"
     internal: true
     default_transition_length: 0s
-    max_refresh_rate: 33ms
 
-  - platform: esp32_rmt_led_strip
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
     pin: ${ambient_led_pin}
     num_leds: ${ambient_led_count}
-    chipset: WS2812
-    rgb_order: GRB
     name: "Luz Ambiente"
     id: rgb_light
     default_transition_length: 0s
-    max_refresh_rate: 33ms
     effects:
       - addressable_rainbow:
           name: "rainbow fast"
@@ -473,42 +468,47 @@ light:
         from: 15
         to: 24
 
-i2s_audio:
-  id: audio_i2s
-  i2s_bclk_pin: ${audio_bclk_pin}
-  i2s_lrclk_pin: ${audio_lrclk_pin}
-
-speaker:
-  - platform: i2s_audio
-    id: audio_speaker
-    i2s_audio_id: audio_i2s
-    i2s_dout_pin: ${audio_sdata_pin}
-    dac_type: external
-    channel: mono
-    i2s_mode: primary
-    i2s_comm_fmt: i2s_lsb
-
-  # media_player (platform: speaker) exige que announcement_pipeline y
-  # media_pipeline apunten a un speaker DISTINTO cada uno ("must output to a
-  # unique speaker"). El mixer crea 2 entradas virtuales que confluyen en el
-  # mismo audio_speaker fisico.
-  - platform: mixer
-    id: audio_mixer
-    output_speaker: audio_speaker
-    source_speakers:
-      - id: announcement_input
-      - id: media_input
-
-media_player:
-  - platform: speaker
-    id: media_out
-    name: "Speaker"
-    # Faltaba media_pipeline: sin esto solo funcionan anuncios/TTS, no
-    # la reproduccion de media general (media_player.play_media desde HA).
-    announcement_pipeline:
-      speaker: announcement_input
-    media_pipeline:
-      speaker: media_input
+# PRUEBA TEMPORAL: audio deshabilitado. speaker/media_player (platform:
+# speaker) exige framework esp-idf, y arriba volvimos a "arduino" para poder
+# usar neopixelbus. Descomentar este bloque + volver esp32.framework.type a
+# "esp-idf" + volver los 2 "light:" de arriba a esp32_rmt_led_strip para
+# reactivar el audio.
+# i2s_audio:
+#   id: audio_i2s
+#   i2s_bclk_pin: ${audio_bclk_pin}
+#   i2s_lrclk_pin: ${audio_lrclk_pin}
+#
+# speaker:
+#   - platform: i2s_audio
+#     id: audio_speaker
+#     i2s_audio_id: audio_i2s
+#     i2s_dout_pin: ${audio_sdata_pin}
+#     dac_type: external
+#     channel: mono
+#     i2s_mode: primary
+#     i2s_comm_fmt: i2s_lsb
+#
+#   # media_player (platform: speaker) exige que announcement_pipeline y
+#   # media_pipeline apunten a un speaker DISTINTO cada uno ("must output to a
+#   # unique speaker"). El mixer crea 2 entradas virtuales que confluyen en el
+#   # mismo audio_speaker fisico.
+#   - platform: mixer
+#     id: audio_mixer
+#     output_speaker: audio_speaker
+#     source_speakers:
+#       - id: announcement_input
+#       - id: media_input
+#
+# media_player:
+#   - platform: speaker
+#     id: media_out
+#     name: "Speaker"
+#     # Faltaba media_pipeline: sin esto solo funcionan anuncios/TTS, no
+#     # la reproduccion de media general (media_player.play_media desde HA).
+#     announcement_pipeline:
+#       speaker: announcement_input
+#     media_pipeline:
+#       speaker: media_input
 
 
 script:
