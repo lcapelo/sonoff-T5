@@ -62,6 +62,10 @@ namespace esphome
             Trigger<TouchPoint> full_touch_release_trigger_;
             Trigger<TouchPoint> long_touch_release_trigger_;
 
+            // Tras swipe o multi-touch el panel suele mandar un release "long" (x>=17)
+            // que no debe disparar long_touch_release ni on_release.
+            bool suppress_long_release_{false};
+
         }; // class TxUltimateTouch
 
     } // namespace tx_ultimate_touch

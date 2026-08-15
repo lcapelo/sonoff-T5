@@ -75,32 +75,45 @@ namespace esphome
                 if (tp.x >= 17)
                 {
                     tp.x = tp.x - 16;
-                    ESP_LOGD(TAG, "Long Press Release (x=%d)", tp.x);
-                    this->long_touch_release_trigger_.trigger(tp);
+                    if (this->suppress_long_release_)
+                    {
+                        ESP_LOGD(TAG, "Suppressed long release after gesture (x=%d)", tp.x);
+                        this->suppress_long_release_ = false;
+                    }
+                    else
+                    {
+                        ESP_LOGD(TAG, "Long Press Release (x=%d)", tp.x);
+                        this->long_touch_release_trigger_.trigger(tp);
+                    }
                 }
                 else
                 {
+                    this->suppress_long_release_ = false;
                     ESP_LOGD(TAG, "Release (x=%d)", tp.x);
                     this->release_trigger_.trigger(tp);
                 }
                 break;
 
             case TOUCH_STATE_PRESS:
+                this->suppress_long_release_ = false;
                 ESP_LOGD(TAG, "Press (x=%d)", tp.x);
                 this->touch_trigger_.trigger(tp);
                 break;
 
             case TOUCH_STATE_SWIPE_LEFT:
+                this->suppress_long_release_ = true;
                 ESP_LOGD(TAG, "Swipe Left (x=%d)", tp.x);
                 this->swipe_trigger_left_.trigger(tp);
                 break;
 
             case TOUCH_STATE_SWIPE_RIGHT:
+                this->suppress_long_release_ = true;
                 ESP_LOGD(TAG, "Swipe Right (x=%d)", tp.x);
                 this->swipe_trigger_right_.trigger(tp);
                 break;
 
             case TOUCH_STATE_ALL_FIELDS:
+                this->suppress_long_release_ = true;
                 ESP_LOGD(TAG, "Full Touch Release");
                 this->full_touch_release_trigger_.trigger(tp);
                 break;
