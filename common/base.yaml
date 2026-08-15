@@ -293,10 +293,6 @@ switch:
     internal: true
     restore_mode: ALWAYS_ON
 
-  # speaker: platform: i2s_audio (nuevo, reemplaza al media_player: platform:
-  # i2s_audio deprecado) ya no tiene mute_pin propio, asi que el pin de
-  # enable/mute del ampli (GPIO26, activo en bajo) se maneja aca a mano,
-  # siempre habilitado.
   - platform: gpio
     id: audio_amp_enable
     name: "Audio amp enable"
@@ -469,67 +465,120 @@ media_player:
 
 
 script:
-  # Enciende/apaga la tira completa como aviso transitorio de gesto, y luego
-  # restaura el estado normal (reles + nightlight) via refresh_led_default.
+  # Aviso transitorio de gesto: en vez de comandar "rgb_light" (la tira
+  # completa / entidad "Luz Ambiente") directamente, se manda a las 4
+  # particiones de lado (light_top/bottom/left/right, en light: arriba) que
+  # entre las 4 cubren el 100% de los pixeles. Asi el flash nunca toca el
+  # propio estado on/off de "Luz Ambiente" -- si se le pega ahi, la entidad
+  # queda marcada "encendida" en HA para siempre, y refresh_led_default (que
+  # solo maneja las particiones de canal) nunca la vuelve a apagar.
+  # NOTA: si cambias touch_effect/multi_touch_effect a un efecto con nombre
+  # real (no "None"), hay que declarar ese mismo efecto en las 4 particiones
+  # de lado para que "effect:" sea valido ahi.
   - id: led_on_touch
     mode: restart
     then:
-      - light.turn_on:
-          id: rgb_light
+      - light.turn_on: &touch_flash
+          id: light_top
           brightness: ${touch_brightness}
           red: !lambda "return id(touch_color)[0]/100.0;"
           green: !lambda "return id(touch_color)[1]/100.0;"
           blue: !lambda "return id(touch_color)[2]/100.0;"
           effect: ${touch_effect}
+      - light.turn_on:
+          <<: *touch_flash
+          id: light_bottom
+      - light.turn_on:
+          <<: *touch_flash
+          id: light_left
+      - light.turn_on:
+          <<: *touch_flash
+          id: light_right
       - delay: 1s
       - script.execute: refresh_led_default
 
   - id: led_on_swipe_left
     mode: restart
     then:
-      - light.turn_on:
-          id: rgb_light
+      - light.turn_on: &swipe_left_flash
+          id: light_top
           brightness: ${swipe_left_brightness}
           red: !lambda "return id(swipe_left_color)[0]/100.0;"
           green: !lambda "return id(swipe_left_color)[1]/100.0;"
           blue: !lambda "return id(swipe_left_color)[2]/100.0;"
+      - light.turn_on:
+          <<: *swipe_left_flash
+          id: light_bottom
+      - light.turn_on:
+          <<: *swipe_left_flash
+          id: light_left
+      - light.turn_on:
+          <<: *swipe_left_flash
+          id: light_right
       - delay: 1s
       - script.execute: refresh_led_default
 
   - id: led_on_swipe_right
     mode: restart
     then:
-      - light.turn_on:
-          id: rgb_light
+      - light.turn_on: &swipe_right_flash
+          id: light_top
           brightness: ${swipe_right_brightness}
           red: !lambda "return id(swipe_right_color)[0]/100.0;"
           green: !lambda "return id(swipe_right_color)[1]/100.0;"
           blue: !lambda "return id(swipe_right_color)[2]/100.0;"
+      - light.turn_on:
+          <<: *swipe_right_flash
+          id: light_bottom
+      - light.turn_on:
+          <<: *swipe_right_flash
+          id: light_left
+      - light.turn_on:
+          <<: *swipe_right_flash
+          id: light_right
       - delay: 1s
       - script.execute: refresh_led_default
 
   - id: led_on_full_touch
     mode: restart
     then:
-      - light.turn_on:
-          id: rgb_light
+      - light.turn_on: &full_touch_flash
+          id: light_top
           brightness: ${multi_touch_brightness}
           red: !lambda "return id(multi_touch_color)[0]/100.0;"
           green: !lambda "return id(multi_touch_color)[1]/100.0;"
           blue: !lambda "return id(multi_touch_color)[2]/100.0;"
           effect: ${multi_touch_effect}
+      - light.turn_on:
+          <<: *full_touch_flash
+          id: light_bottom
+      - light.turn_on:
+          <<: *full_touch_flash
+          id: light_left
+      - light.turn_on:
+          <<: *full_touch_flash
+          id: light_right
       - delay: 1s
       - script.execute: refresh_led_default
 
   - id: led_on_long_touch
     mode: restart
     then:
-      - light.turn_on:
-          id: rgb_light
+      - light.turn_on: &long_touch_flash
+          id: light_top
           brightness: ${long_press_brightness}
           red: !lambda "return id(long_press_color)[0]/100.0;"
           green: !lambda "return id(long_press_color)[1]/100.0;"
           blue: !lambda "return id(long_press_color)[2]/100.0;"
+      - light.turn_on:
+          <<: *long_touch_flash
+          id: light_bottom
+      - light.turn_on:
+          <<: *long_touch_flash
+          id: light_left
+      - light.turn_on:
+          <<: *long_touch_flash
+          id: light_right
       - delay: 1s
       - script.execute: refresh_led_default
   # refresh_nightlight (automatizacion por sol) vive en common/nightlight_auto.yaml,
