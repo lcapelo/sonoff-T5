@@ -25,3 +25,8 @@ substitutions:
 packages:
   base: !include common/base.yaml
   channels: !include common/channels_${relay_count}.yaml
+
+  # Fixtures opcionales: comenta la linea para no incluir esa fixture.
+  ble_tracker: !include common/ble_tracker.yaml
+  bluetooth_proxy: !include common/bluetooth_proxy.yaml
+  web_server: !include common/web_server.yaml

@@ -131,25 +131,9 @@ wifi:
 
   use_address: ${ip}
 
-## Enable Bluetooth Proxy
-esp32_ble_tracker:
-    scan_parameters:
-      active: true
-      interval: 320ms
-      window: 30ms
-      duration: 5min
-      continuous: true
-
-bluetooth_proxy:
-  active: true
-  cache_services: true
-  connection_slots: 3
-
-web_server:
-  port: 80
-  auth:
-    username: !secret web-server_username
-    password: !secret web-server_password
+# esp32_ble_tracker / bluetooth_proxy / web_server son opcionales y viven en
+# common/ble_tracker.yaml, bluetooth_proxy.yaml, web_server.yaml. Se habilitan
+# importandolos (o no) desde el packages: de sonoff-t5.yaml.
 
 time:
   - platform: homeassistant
