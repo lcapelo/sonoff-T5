@@ -56,6 +56,7 @@ light:
   - platform: partition
     id: light_channel_1
     name: "Led ${channel_1}"
+    default_transition_length: 0s
     segments:
       - id: rgb_light
         from: 0
@@ -67,6 +68,7 @@ light:
   - platform: partition
     id: light_channel_2
     name: "Led ${channel_2}"
+    default_transition_length: 0s
     segments:
       - id: rgb_light
         from: 2
@@ -78,6 +80,7 @@ light:
   - platform: partition
     id: light_channel_3
     name: "Led ${channel_3}"
+    default_transition_length: 0s
     segments:
       - id: rgb_light
         from: 6
