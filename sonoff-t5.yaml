@@ -1,0 +1,43 @@
+# Sonoff T5 US (3 canales) - dispositivo real del usuario.
+# Para flashear otra variante (1, 2 o 4 canales), copia este archivo y cambia
+# relay_count + los channel_N que uses. Ver README.md para detalles.
+
+substitutions:
+  name: "sonoff-t5-sala"
+  friendly_name: "Sonoff T5 Sala"
+  ip: "XX.XX.XX.XX"
+
+  relay_count: "3"
+
+  channel_1: "Luz Derecha"
+  channel_2: "Luz Centro"
+  channel_3: "Luz Izquierda"
+
+  # Desacople toque -> rele por canal (poner "false" para usar ese boton solo
+  # como pulsador que avisa a Home Assistant, sin conmutar el rele local).
+  toggle_relay_1_on_touch: "true"
+  toggle_relay_2_on_touch: "true"
+  toggle_relay_3_on_touch: "true"
+
+  # Umbral de mantener pulsado para el long-press por boton.
+  long_press_time: 500ms
+
+  # Orientacion de montaje: "vertical" u "horizontal" (rotado 90 grados).
+  # Cambia los nombres de los 4 lados de LED y de los sensores de swipe.
+  orientation: "vertical"
+
+  # Solo si importas common/nightlight_auto.yaml: tu ubicacion real, para que
+  # el calculo de amanecer/atardecer sea correcto (por defecto son 0,0 dummy).
+  # latitude: "-34.603722°"
+  # longitude: "-58.381592°"
+
+packages:
+  base: !include common/base.yaml
+  channels: !include common/channels_${relay_count}.yaml
+  orientation: !include common/orientation_${orientation}.yaml
+
+  # Fixtures opcionales: comenta la linea para no incluir esa fixture.
+  ble_tracker: !include common/ble_tracker.yaml
+  bluetooth_proxy: !include common/bluetooth_proxy.yaml
+  web_server: !include common/web_server.yaml
+  nightlight_auto: !include common/nightlight_auto.yaml

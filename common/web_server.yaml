@@ -1,0 +1,5 @@
+web_server:
+  port: 80
+  auth:
+    username: !secret web-server_username
+    password: !secret web-server_password

@@ -1,0 +1,403 @@
+# Variante de 4 canales.
+# NOTA IMPORTANTE: el propio proyecto de referencia (sonoff-tx-ultimate-for-esphome)
+# documenta el pin del 4to rele (GPIO23) pero indica que nunca vio una variante de
+# hardware real de 4 canales/botones. Este archivo es un ANDAMIAJE best-effort:
+# - Reles: GPIO18/17/27/23 (los 3 primeros son de tu hardware confirmado; el 4to
+#   esta documentado en el SDK de Sonoff pero sin confirmar en campo).
+# - Umbrales de touch.x: extrapolacion, no calibrada contra un panel real de 4 zonas.
+# - Particiones de LED: canal_1=23-31+0, canal_2=1-3+20-22, canal_3=4-6+17-19,
+#   canal_4=7-16 (valores dados a mano, siguiendo el mismo patron de arcos
+#   simetricos que channels_2/3).
+
+switch:
+  - platform: gpio
+    id: relay_1
+    name: "${channel_1}"
+    pin: ${relay_1_pin}
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+  - platform: gpio
+    id: relay_2
+    name: "${channel_2}"
+    pin: ${relay_2_pin}
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+  - platform: gpio
+    id: relay_3
+    name: "${channel_3}"
+    pin: ${relay_3_pin}
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+  - platform: gpio
+    id: relay_4
+    name: "${channel_4}"
+    pin: ${relay_4_pin}
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: refresh_led_default
+    on_turn_off:
+      - script.execute: refresh_led_default
+
+binary_sensor:
+  - platform: template
+    id: touchfield_1
+    name: "Boton ${channel_1}"
+  - platform: template
+    id: touchfield_2
+    name: "Boton ${channel_2}"
+  - platform: template
+    id: touchfield_3
+    name: "Boton ${channel_3}"
+  - platform: template
+    id: touchfield_4
+    name: "Boton ${channel_4}"
+
+  - platform: template
+    id: long_press_1
+    name: "Long ${channel_1}"
+  - platform: template
+    id: long_press_2
+    name: "Long ${channel_2}"
+  - platform: template
+    id: long_press_3
+    name: "Long ${channel_3}"
+  - platform: template
+    id: long_press_4
+    name: "Long ${channel_4}"
+
+light:
+  - platform: partition
+    id: light_channel_1
+    name: "Led ${channel_1}"
+    segments:
+      - id: rgb_light
+        from: 23
+        to: 31
+      - id: rgb_light
+        from: 0
+        to: 0
+
+  - platform: partition
+    id: light_channel_2
+    name: "Led ${channel_2}"
+    segments:
+      - id: rgb_light
+        from: 1
+        to: 3
+      - id: rgb_light
+        from: 20
+        to: 22
+
+  - platform: partition
+    id: light_channel_3
+    name: "Led ${channel_3}"
+    segments:
+      - id: rgb_light
+        from: 4
+        to: 6
+      - id: rgb_light
+        from: 17
+        to: 19
+
+  - platform: partition
+    id: light_channel_4
+    name: "Led ${channel_4}"
+    segments:
+      - id: rgb_light
+        from: 7
+        to: 16
+
+script:
+  # Cancela el long-press pendiente/activo cuando el gesto termina siendo un
+  # swipe, un multi-touch, o el long-press GLOBAL (5s) del componente -- estos
+  # 4 eventos NUNCA disparan on_release (el propio componente los desvia por
+  # su cuenta), asi que sin esto long_press_watch sigue corriendo y termina
+  # prendiendo el long_press_N del canal donde arranco el toque.
+  - id: cancel_long_press
+    mode: restart
+    then:
+      - script.stop: long_press_watch
+      - if:
+          condition:
+            lambda: "return id(long_press_fired);"
+          then:
+            - globals.set:
+                id: long_press_fired
+                value: "false"
+            - binary_sensor.template.publish:
+                id: long_press_1
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_2
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_3
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_4
+                state: OFF
+            - script.execute: refresh_led_default
+          else:
+            - globals.set:
+                id: long_press_fired
+                value: "false"
+
+  # touch.x va de 1 a 10; con 4 botones se reparte en cuartos: <=2 / <=5 / <=7 / resto.
+  - id: long_press_watch
+    mode: restart
+    then:
+      - delay: ${long_press_time}
+      - globals.set:
+          id: long_press_fired
+          value: "true"
+      - if:
+          condition:
+            lambda: "return id(touch_pos) <= 2;"
+          then:
+            - binary_sensor.template.publish:
+                id: long_press_1
+                state: ON
+            - light.turn_on:
+                id: light_channel_1
+                brightness: ${long_press_brightness}
+                red: !lambda "return id(long_press_color)[0]/100.0;"
+                green: !lambda "return id(long_press_color)[1]/100.0;"
+                blue: !lambda "return id(long_press_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(touch_pos) <= 5;"
+                then:
+                  - binary_sensor.template.publish:
+                      id: long_press_2
+                      state: ON
+                  - light.turn_on:
+                      id: light_channel_2
+                      brightness: ${long_press_brightness}
+                      red: !lambda "return id(long_press_color)[0]/100.0;"
+                      green: !lambda "return id(long_press_color)[1]/100.0;"
+                      blue: !lambda "return id(long_press_color)[2]/100.0;"
+                else:
+                  - if:
+                      condition:
+                        lambda: "return id(touch_pos) <= 7;"
+                      then:
+                        - binary_sensor.template.publish:
+                            id: long_press_3
+                            state: ON
+                        - light.turn_on:
+                            id: light_channel_3
+                            brightness: ${long_press_brightness}
+                            red: !lambda "return id(long_press_color)[0]/100.0;"
+                            green: !lambda "return id(long_press_color)[1]/100.0;"
+                            blue: !lambda "return id(long_press_color)[2]/100.0;"
+                      else:
+                        - binary_sensor.template.publish:
+                            id: long_press_4
+                            state: ON
+                        - light.turn_on:
+                            id: light_channel_4
+                            brightness: ${long_press_brightness}
+                            red: !lambda "return id(long_press_color)[0]/100.0;"
+                            green: !lambda "return id(long_press_color)[1]/100.0;"
+                            blue: !lambda "return id(long_press_color)[2]/100.0;"
+      - switch.turn_on: vibra
+
+  - id: handle_release
+    mode: restart
+    parameters:
+      pos: int
+    then:
+      - if:
+          condition:
+            lambda: "return id(long_press_fired);"
+          then:
+            - binary_sensor.template.publish:
+                id: long_press_1
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_2
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_3
+                state: OFF
+            - binary_sensor.template.publish:
+                id: long_press_4
+                state: OFF
+            - script.execute: refresh_led_default
+          else:
+            - if:
+                condition:
+                  lambda: "return pos <= 2;"
+                then:
+                  - if:
+                      condition:
+                        lambda: "return ${toggle_relay_1_on_touch};"
+                      then:
+                        - switch.toggle: relay_1
+                  - binary_sensor.template.publish:
+                      id: touchfield_1
+                      state: ON
+                  - delay: ${button_on_time}
+                  - binary_sensor.template.publish:
+                      id: touchfield_1
+                      state: OFF
+            - if:
+                condition:
+                  lambda: "return pos > 2 && pos <= 5;"
+                then:
+                  - if:
+                      condition:
+                        lambda: "return ${toggle_relay_2_on_touch};"
+                      then:
+                        - switch.toggle: relay_2
+                  - binary_sensor.template.publish:
+                      id: touchfield_2
+                      state: ON
+                  - delay: ${button_on_time}
+                  - binary_sensor.template.publish:
+                      id: touchfield_2
+                      state: OFF
+            - if:
+                condition:
+                  lambda: "return pos > 5 && pos <= 7;"
+                then:
+                  - if:
+                      condition:
+                        lambda: "return ${toggle_relay_3_on_touch};"
+                      then:
+                        - switch.toggle: relay_3
+                  - binary_sensor.template.publish:
+                      id: touchfield_3
+                      state: ON
+                  - delay: ${button_on_time}
+                  - binary_sensor.template.publish:
+                      id: touchfield_3
+                      state: OFF
+            - if:
+                condition:
+                  lambda: "return pos > 7;"
+                then:
+                  - if:
+                      condition:
+                        lambda: "return ${toggle_relay_4_on_touch};"
+                      then:
+                        - switch.toggle: relay_4
+                  - binary_sensor.template.publish:
+                      id: touchfield_4
+                      state: ON
+                  - delay: ${button_on_time}
+                  - binary_sensor.template.publish:
+                      id: touchfield_4
+                      state: OFF
+
+  - id: refresh_led_default
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(relay_1).state;"
+          then:
+            - light.turn_on:
+                id: light_channel_1
+                brightness: ${button_brightness}
+                red: !lambda "return id(button_color)[0]/100.0;"
+                green: !lambda "return id(button_color)[1]/100.0;"
+                blue: !lambda "return id(button_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
+                then:
+                  - light.turn_on:
+                      id: light_channel_1
+                      brightness: ${nightlight_brightness}
+                      red: !lambda "return id(nightlight_color)[0]/100.0;"
+                      green: !lambda "return id(nightlight_color)[1]/100.0;"
+                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
+                else:
+                  - light.turn_off: light_channel_1
+
+      - if:
+          condition:
+            lambda: "return id(relay_2).state;"
+          then:
+            - light.turn_on:
+                id: light_channel_2
+                brightness: ${button_brightness}
+                red: !lambda "return id(button_color)[0]/100.0;"
+                green: !lambda "return id(button_color)[1]/100.0;"
+                blue: !lambda "return id(button_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
+                then:
+                  - light.turn_on:
+                      id: light_channel_2
+                      brightness: ${nightlight_brightness}
+                      red: !lambda "return id(nightlight_color)[0]/100.0;"
+                      green: !lambda "return id(nightlight_color)[1]/100.0;"
+                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
+                else:
+                  - light.turn_off: light_channel_2
+
+      - if:
+          condition:
+            lambda: "return id(relay_3).state;"
+          then:
+            - light.turn_on:
+                id: light_channel_3
+                brightness: ${button_brightness}
+                red: !lambda "return id(button_color)[0]/100.0;"
+                green: !lambda "return id(button_color)[1]/100.0;"
+                blue: !lambda "return id(button_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
+                then:
+                  - light.turn_on:
+                      id: light_channel_3
+                      brightness: ${nightlight_brightness}
+                      red: !lambda "return id(nightlight_color)[0]/100.0;"
+                      green: !lambda "return id(nightlight_color)[1]/100.0;"
+                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
+                else:
+                  - light.turn_off: light_channel_3
+
+      - if:
+          condition:
+            lambda: "return id(relay_4).state;"
+          then:
+            - light.turn_on:
+                id: light_channel_4
+                brightness: ${button_brightness}
+                red: !lambda "return id(button_color)[0]/100.0;"
+                green: !lambda "return id(button_color)[1]/100.0;"
+                blue: !lambda "return id(button_color)[2]/100.0;"
+          else:
+            - if:
+                condition:
+                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
+                then:
+                  - light.turn_on:
+                      id: light_channel_4
+                      brightness: ${nightlight_brightness}
+                      red: !lambda "return id(nightlight_color)[0]/100.0;"
+                      green: !lambda "return id(nightlight_color)[1]/100.0;"
+                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
+                else:
+                  - light.turn_off: light_channel_4
