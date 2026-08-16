@@ -97,9 +97,6 @@ esphome:
       - binary_sensor.template.publish:
           id: multi_touch
           state: OFF
-      - binary_sensor.template.publish:
-          id: long_press
-          state: OFF
       - script.execute: refresh_led_default
       # El script refresh_nightlight (si esta importado, ver
       # common/nightlight_auto.yaml) agrega su propia entrada de on_boot.
@@ -264,6 +261,16 @@ tx_ultimate_touch:
         state: OFF
 
   on_full_touch_release:
+    # LIMITACION DE HARDWARE (no se puede arreglar por software): el chip
+    # tactil solo clasifica un toque como multi-touch en el momento de
+    # soltar (este evento es, en el protocolo, un tipo de RELEASE), nunca
+    # mientras se mantienen los dedos apoyados. Por eso, si el multi-touch
+    # dura mas de ${long_press_time}, vas a ver el long_press_N del canal
+    # del primer dedo prenderse brevemente DURANTE el toque (long_press_watch
+    # no tiene forma de saber que esto terminara siendo multi-touch hasta
+    # que se suelta) -- cancel_long_press lo limpia correctamente aca, recien
+    # al soltar. No hay señal de "multi-touch en curso" que podamos escuchar
+    # para evitar ese parpadeo mientras se mantiene apretado.
     - script.execute: cancel_long_press
     - script.execute: led_on_full_touch
     - switch.turn_on: vibra
@@ -276,19 +283,18 @@ tx_ultimate_touch:
         state: OFF
 
   on_long_touch_release:
-    # Long-press GLOBAL del propio componente (5s, no distingue canal).
-    # El long-press POR BOTON configurable (${long_press_time}) vive en channels_N.yaml.
-    # Tampoco pasa por on_release, asi que igual hay que limpiar aca.
-    - script.execute: cancel_long_press
-    - script.execute: led_on_long_touch
+    # Release de un toque mantenido >5s (el propio componente ya ajusta
+    # touch.x -16 para esto). Se trata igual que un on_release normal -- asi
+    # el long_press_N del canal (que ya viene encendido desde los
+    # ${long_press_time} iniciales) se cierra por handle_release, en vez de
+    # taparlo con un sensor global "Long press (5s)" aparte.
+    - script.stop: long_press_watch
+    - script.execute:
+        id: handle_release
+        pos: !lambda "return touch.x;"
     - switch.turn_on: vibra
-    - binary_sensor.template.publish:
-        id: long_press
-        state: ON
-    - delay: ${button_on_time}
-    - binary_sensor.template.publish:
-        id: long_press
-        state: OFF
+    - lambda: >
+        ESP_LOGD("tx_ultimate_touch.on_long_touch_release", "Long Touch Release Position: %d / State: %d", touch.x, touch.state);
 
 binary_sensor:
   - platform: template
@@ -300,9 +306,6 @@ binary_sensor:
   - platform: template
     id: multi_touch
     name: "Multi touch"
-  - platform: template
-    id: long_press
-    name: "Long press (5s)"
 
 switch:
   - platform: gpio
@@ -561,20 +564,6 @@ script:
           green: !lambda "return id(multi_touch_color)[1]/100.0;"
           blue: !lambda "return id(multi_touch_color)[2]/100.0;"
           effect: ${multi_touch_effect}
-      - delay: 1s
-      - script.execute: restore_ambient_state
-      - script.execute: refresh_led_default
-
-  - id: led_on_long_touch
-    mode: restart
-    then:
-      - script.execute: save_ambient_state
-      - light.turn_on:
-          id: rgb_light
-          brightness: ${long_press_brightness}
-          red: !lambda "return id(long_press_color)[0]/100.0;"
-          green: !lambda "return id(long_press_color)[1]/100.0;"
-          blue: !lambda "return id(long_press_color)[2]/100.0;"
       - delay: 1s
       - script.execute: restore_ambient_state
       - script.execute: refresh_led_default

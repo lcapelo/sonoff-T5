@@ -97,9 +97,20 @@ normal.
 Ejemplo de uso en HA: una automatización que, mientras `Long <canal>` esté
 `on`, suba o baje el brillo de una luz dimerizable cada cierto intervalo.
 
-*(Esto es distinto del "Long press (5s)" global del panel, que viene del
-componente táctil y no distingue en qué botón ocurrió — útil para gestos
-generales, no por canal.)*
+> El componente táctil también tiene su propio long-press "nativo" de 5s
+> (`on_long_touch_release`), pero no lo exponemos como sensor aparte: se
+> trata igual que un `on_release` normal, así que si mantenés apretado más de
+> 5s seguís viendo el mismo `Long <canal>` (arrancado a los
+> `${long_press_time}` iniciales) hasta que soltás — sin un sensor global
+> "Long press (5s)" tapándolo a mitad de camino.
+
+> **Limitación de hardware conocida**: el multi-touch (`Multi touch`) solo se
+> clasifica en el chip táctil al **soltar** los dedos, nunca mientras se
+> mantienen apoyados. Si sostenés un multi-touch más de `${long_press_time}`,
+> vas a ver el `Long <canal>` del primer dedo prenderse brevemente *durante*
+> el toque (se limpia correctamente recién al soltar). No hay forma de evitar
+> ese parpadeo por software — el protocolo no expone una señal de "multi-touch
+> en curso".
 
 ## Qué se mantiene del T5 original
 
@@ -114,12 +125,11 @@ generales, no por canal.)*
 
 - Componente táctil `tx_ultimate_touch` (vendorizado localmente, ver sección de
   arriba) en vez del componente local `components/touch_panel` (que solo
-  soportaba 3 botones fijos). Da swipe izquierda/derecha, multi-touch y
-  long-press global, además de la posición cruda del toque para poder
+  soportaba 3 botones fijos). Da swipe izquierda/derecha, multi-touch y un
+  long-press nativo de 5s, además de la posición cruda del toque para poder
   generalizar a 1-4 canales.
 - Nightlight automático según la posición del sol (`sun` + `latitude`/`longitude`).
-- Feedback visual (flash breve en la tira) al tocar, hacer swipe, multi-touch o
-  long-press global.
+- Feedback visual (flash breve en la tira) al tocar, hacer swipe o multi-touch.
 
 ## Qué se quitó (específico de la instalación anterior del usuario)
 
