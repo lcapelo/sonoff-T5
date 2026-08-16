@@ -325,15 +325,18 @@ light:
     name: "NeoPixel 13"
     internal: true
 
-  # Layout real del anillo de 32 LEDs del T5 US (visto de frente), usado para
-  # calibrar los segmentos de channels_N.yaml y los paths del swipe abajo:
-  #   ---30-29-28-27-26-25---
-  #   31---------------------24
-  #   0----------------------23
-  #   1----------------------22
-  #   ........................
-  #   8----------------------15
-  #   ----9-10-11-12-13-14----
+  # Layout real del anillo de 32 LEDs del T5 US, visto de FRENTE (mirado desde
+  # atras se ve reflejado izquierda-derecha), usado para calibrar los
+  # segmentos de channels_N.yaml y los paths del swipe abajo. En montaje
+  # vertical el grupo 31/0-8 queda a la DERECHA; rotando 90 grados en sentido
+  # horario a montaje horizontal, ese mismo grupo pasa a quedar ABAJO:
+  #   ---25-26-27-28-29-30---
+  #   24----------------------31
+  #   23-----------------------0
+  #   22-----------------------1
+  #   .........................
+  #   15-----------------------8
+  #   ----14-13-12-11-10-9----
   - platform: neopixelbus
     type: GRB
     variant: WS2812
@@ -405,10 +408,16 @@ light:
               it.range(id(flash_led_from2), id(flash_led_to2)) = c;
             }
 
-      # Swipe: 2 "viboras" de 4 LEDs que arrancan al lado donde se hizo el
-      # swipe (led 27/28, el limite entre canal_1 y canal_3 del layout de
-      # arriba) y recorren cada mitad del anillo hasta encontrarse del otro
-      # lado (led 11/12). "Swipe Right" es la misma animacion al reves.
+      # Swipe: 2 "viboras" de 4 LEDs que recorren cada mitad del anillo entre
+      # el arco de arriba (led 27/28, dentro del canal_1) y el de abajo (led
+      # 11/12, dentro del canal_3). La luz viaja en el sentido percibido del
+      # swipe: swipe_left (chip nativo) se percibe, en montaje vertical, como
+      # un gesto hacia ARRIBA (ver "Swipe Top" en orientation_vertical.yaml),
+      # asi que "Swipe Left" termina arriba (27/28); "Swipe Right" es la misma
+      # animacion al reves, terminando abajo (11/12). Esta direccion depende
+      # de una convencion del chip que no se pudo confirmar en hardware real
+      # -- si al probarlo se ve al reves, alcanza con swapear las formulas de
+      # "head" entre estos dos effects.
       - addressable_lambda:
           name: "Swipe Left"
           update_interval: 30ms
@@ -422,13 +431,13 @@ light:
             }
             float progress = (millis() - start_ms) / (float) id(swipe_time_ms);
             if (progress > 1.0f) progress = 1.0f;
-            int head = (int) (progress * 15);
+            int head = (int) ((1.0f - progress) * 15);
             Color c((uint8_t) (id(swipe_left_color)[0] * 255 / 100),
                     (uint8_t) (id(swipe_left_color)[1] * 255 / 100),
                     (uint8_t) (id(swipe_left_color)[2] * 255 / 100));
             for (int k = 0; k < 4; k++) {
-              int idx = head - k;
-              if (idx < 0) continue;
+              int idx = head + k;
+              if (idx > 15) continue;
               it[path_a[idx]] = c;
               it[path_b[idx]] = c;
             }
@@ -445,13 +454,13 @@ light:
             }
             float progress = (millis() - start_ms) / (float) id(swipe_time_ms);
             if (progress > 1.0f) progress = 1.0f;
-            int head = (int) ((1.0f - progress) * 15);
+            int head = (int) (progress * 15);
             Color c((uint8_t) (id(swipe_right_color)[0] * 255 / 100),
                     (uint8_t) (id(swipe_right_color)[1] * 255 / 100),
                     (uint8_t) (id(swipe_right_color)[2] * 255 / 100));
             for (int k = 0; k < 4; k++) {
-              int idx = head + k;
-              if (idx > 15) continue;
+              int idx = head - k;
+              if (idx < 0) continue;
               it[path_a[idx]] = c;
               it[path_b[idx]] = c;
             }
