@@ -1,4 +1,4 @@
-# Variante de 3 canales 
+# Variante de 3 canales
 
 switch:
   - platform: gpio
@@ -6,30 +6,18 @@ switch:
     name: "${channel_1}"
     pin: ${relay_1_pin}
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - script.execute: refresh_led_default
-    on_turn_off:
-      - script.execute: refresh_led_default
 
   - platform: gpio
     id: relay_2
     name: "${channel_2}"
     pin: ${relay_2_pin}
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - script.execute: refresh_led_default
-    on_turn_off:
-      - script.execute: refresh_led_default
 
   - platform: gpio
     id: relay_3
     name: "${channel_3}"
     pin: ${relay_3_pin}
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - script.execute: refresh_led_default
-    on_turn_off:
-      - script.execute: refresh_led_default
 
 binary_sensor:
   - platform: template
@@ -52,47 +40,24 @@ binary_sensor:
     id: long_press_3
     name: "Long ${channel_3}"
 
-light:
-  - platform: partition
-    id: light_channel_1
-    name: "Led ${channel_1}"
-    segments:
-      - id: rgb_light
-        from: 0
-        to: 1
-      - id: rgb_light
-        from: 22
-        to: 31
-
-  - platform: partition
-    id: light_channel_2
-    name: "Led ${channel_2}"
-    segments:
-      - id: rgb_light
-        from: 2
-        to: 5
-      - id: rgb_light
-        from: 18
-        to: 21
-
-  - platform: partition
-    id: light_channel_3
-    name: "Led ${channel_3}"
-    segments:
-      - id: rgb_light
-        from: 6
-        to: 17
-
 script:
   # Cancela el long-press pendiente/activo cuando el gesto termina siendo un
   # swipe, un multi-touch, o el long-press GLOBAL (5s) del componente -- estos
   # 4 eventos NUNCA disparan on_release (el propio componente los desvia por
   # su cuenta), asi que sin esto long_press_watch sigue corriendo y termina
-  # prendiendo el long_press_N del canal donde arranco el toque.
+  # prendiendo el long_press_N del canal donde arranco el toque. Tambien
+  # limpia el flash de touch/long-press que pudiera seguir activo (el swipe/
+  # full-touch dispara su propio flash a continuacion de esto).
   - id: cancel_long_press
     mode: restart
     then:
       - script.stop: long_press_watch
+      - script.stop: touch_flash_timeout
+      - if:
+          condition:
+            lambda: "return ${visual_feedback};"
+          then:
+            - script.execute: restore_ambient_state
       - if:
           condition:
             lambda: "return id(long_press_fired);"
@@ -109,11 +74,77 @@ script:
             - binary_sensor.template.publish:
                 id: long_press_3
                 state: OFF
-            - script.execute: refresh_led_default
           else:
             - globals.set:
                 id: long_press_fired
                 value: "false"
+
+  # Flash de touch_color sobre el segmento del canal tocado (ver "Segment
+  # Flash" en base.yaml), durante ${touch_time}. Si el toque se vuelve
+  # long-press, long_press_watch cancela el apagado y cambia el color; si se
+  # suelta antes, handle_release no hace nada con esto y touch_flash_timeout
+  # lo apaga solo al llegar a ${touch_time}.
+  - id: led_on_touch
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return ${visual_feedback};"
+          then:
+            - if:
+                condition:
+                  lambda: "return id(touch_pos) <= 3;"
+                then:
+                  - globals.set:
+                      id: flash_led_from
+                      value: !lambda "return 0;"
+                  - globals.set:
+                      id: flash_led_to
+                      value: !lambda "return 1;"
+                  - globals.set:
+                      id: flash_led_from2
+                      value: !lambda "return 22;"
+                  - globals.set:
+                      id: flash_led_to2
+                      value: !lambda "return 31;"
+                else:
+                  - if:
+                      condition:
+                        lambda: "return id(touch_pos) <= 7;"
+                      then:
+                        - globals.set:
+                            id: flash_led_from
+                            value: !lambda "return 2;"
+                        - globals.set:
+                            id: flash_led_to
+                            value: !lambda "return 5;"
+                        - globals.set:
+                            id: flash_led_from2
+                            value: !lambda "return 18;"
+                        - globals.set:
+                            id: flash_led_to2
+                            value: !lambda "return 21;"
+                      else:
+                        - globals.set:
+                            id: flash_led_from
+                            value: !lambda "return 6;"
+                        - globals.set:
+                            id: flash_led_to
+                            value: !lambda "return 17;"
+                        - globals.set:
+                            id: flash_led_from2
+                            value: !lambda "return -1;"
+            - globals.set:
+                id: flash_use_long_press_color
+                value: "false"
+            - script.execute: save_ambient_state
+            - light.turn_on:
+                id: rgb_light
+                effect: "None"
+            - light.turn_on:
+                id: rgb_light
+                effect: "Segment Flash"
+            - script.execute: touch_flash_timeout
 
   # Toque mantenido > ${long_press_time} en la posicion pos -> long_press_N ON
   # (si se suelta antes, on_release hace script.stop y esto nunca corre: toque corto).
@@ -131,12 +162,6 @@ script:
             - binary_sensor.template.publish:
                 id: long_press_1
                 state: ON
-            - light.turn_on:
-                id: light_channel_1
-                brightness: ${long_press_brightness}
-                red: !lambda "return id(long_press_color)[0]/100.0;"
-                green: !lambda "return id(long_press_color)[1]/100.0;"
-                blue: !lambda "return id(long_press_color)[2]/100.0;"
           else:
             - if:
                 condition:
@@ -145,22 +170,21 @@ script:
                   - binary_sensor.template.publish:
                       id: long_press_2
                       state: ON
-                  - light.turn_on:
-                      id: light_channel_2
-                      brightness: ${long_press_brightness}
-                      red: !lambda "return id(long_press_color)[0]/100.0;"
-                      green: !lambda "return id(long_press_color)[1]/100.0;"
-                      blue: !lambda "return id(long_press_color)[2]/100.0;"
                 else:
                   - binary_sensor.template.publish:
                       id: long_press_3
                       state: ON
-                  - light.turn_on:
-                      id: light_channel_3
-                      brightness: ${long_press_brightness}
-                      red: !lambda "return id(long_press_color)[0]/100.0;"
-                      green: !lambda "return id(long_press_color)[1]/100.0;"
-                      blue: !lambda "return id(long_press_color)[2]/100.0;"
+      - if:
+          condition:
+            lambda: "return ${visual_feedback};"
+          then:
+            # El segmento ya lo dejo puesto led_on_touch; solo cambia el
+            # color y cancela el apagado automatico para que se mantenga
+            # prendido hasta soltar.
+            - script.stop: touch_flash_timeout
+            - globals.set:
+                id: flash_use_long_press_color
+                value: "true"
       - switch.turn_on: vibra
 
   - id: handle_release
@@ -172,7 +196,7 @@ script:
           condition:
             lambda: "return id(long_press_fired);"
           then:
-            # Cierra el hold: apaga el long_press_N que quedo encendido y restaura LEDs.
+            # Cierra el hold: apaga el long_press_N que quedo encendido y el flash.
             - binary_sensor.template.publish:
                 id: long_press_1
                 state: OFF
@@ -182,7 +206,11 @@ script:
             - binary_sensor.template.publish:
                 id: long_press_3
                 state: OFF
-            - script.execute: refresh_led_default
+            - if:
+                condition:
+                  lambda: "return ${visual_feedback};"
+                then:
+                  - script.execute: restore_ambient_state
           else:
             # Toque corto: publica el evento y, si esta habilitado, conmuta el rele.
             - if:
@@ -233,78 +261,3 @@ script:
                   - binary_sensor.template.publish:
                       id: touchfield_3
                       state: OFF
-
-  - id: refresh_led_default
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: "return id(relay_1).state;"
-          then:
-            - light.turn_on:
-                id: light_channel_1
-                brightness: ${button_brightness}
-                red: !lambda "return id(button_color)[0]/100.0;"
-                green: !lambda "return id(button_color)[1]/100.0;"
-                blue: !lambda "return id(button_color)[2]/100.0;"
-          else:
-            - if:
-                condition:
-                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
-                then:
-                  - light.turn_on:
-                      id: light_channel_1
-                      brightness: ${nightlight_brightness}
-                      red: !lambda "return id(nightlight_color)[0]/100.0;"
-                      green: !lambda "return id(nightlight_color)[1]/100.0;"
-                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
-                else:
-                  - light.turn_off: light_channel_1
-
-      - if:
-          condition:
-            lambda: "return id(relay_2).state;"
-          then:
-            - light.turn_on:
-                id: light_channel_2
-                brightness: ${button_brightness}
-                red: !lambda "return id(button_color)[0]/100.0;"
-                green: !lambda "return id(button_color)[1]/100.0;"
-                blue: !lambda "return id(button_color)[2]/100.0;"
-          else:
-            - if:
-                condition:
-                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
-                then:
-                  - light.turn_on:
-                      id: light_channel_2
-                      brightness: ${nightlight_brightness}
-                      red: !lambda "return id(nightlight_color)[0]/100.0;"
-                      green: !lambda "return id(nightlight_color)[1]/100.0;"
-                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
-                else:
-                  - light.turn_off: light_channel_2
-
-      - if:
-          condition:
-            lambda: "return id(relay_3).state;"
-          then:
-            - light.turn_on:
-                id: light_channel_3
-                brightness: ${button_brightness}
-                red: !lambda "return id(button_color)[0]/100.0;"
-                green: !lambda "return id(button_color)[1]/100.0;"
-                blue: !lambda "return id(button_color)[2]/100.0;"
-          else:
-            - if:
-                condition:
-                  lambda: "return id(nightlight).state || id(nightlight_active).state;"
-                then:
-                  - light.turn_on:
-                      id: light_channel_3
-                      brightness: ${nightlight_brightness}
-                      red: !lambda "return id(nightlight_color)[0]/100.0;"
-                      green: !lambda "return id(nightlight_color)[1]/100.0;"
-                      blue: !lambda "return id(nightlight_color)[2]/100.0;"
-                else:
-                  - light.turn_off: light_channel_3

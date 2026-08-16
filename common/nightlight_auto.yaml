@@ -1,49 +1,23 @@
-# Extension OPCIONAL: automatiza el switch "nightlight" (interno) segun la
-# posicion del sol, usando latitude/longitude. Si no la importas desde
-# sonoff-t5.yaml, el switch "nightlight" se queda apagado para siempre y el
-# nightlight manual ("Nightlight" / id: nightlight_active) sigue funcionando
-# igual - esta extension solo agrega el modo automatico.
+# Extension OPCIONAL, ACTUALMENTE SIN EFECTO: automatizaba el switch interno
+# "nightlight" segun la posicion del sol, pero ese switch (y "nightlight_active",
+# y el indicador LED por canal que pintaban) se eliminaron al rediseñar el
+# feedback de LEDs -- ahora Luz Ambiente es la unica duena de los 32 LEDs, sin
+# ningun indicador persistente de estado por canal al cual "apagar a
+# nightlight_color". Si se quiere recuperar un modo nocturno automatico hay
+# que decidir a que aplica ahora (por ejemplo, atenuar "Luz Ambiente"
+# directamente al anochecer) y escribir ese script desde cero. Por ahora esta
+# extension solo deja declarados time/sun, listos para reusar.
 
 substitutions:
-  # "on"/"off": corta el circuito sin sacar la extension del packages.
-  nightlight: "on"
   latitude: "0.000000°"
   longitude: "0.000000°"
-
-esphome:
-  on_boot:
-    - priority: -100.0
-      then:
-        - script.execute: refresh_nightlight
 
 time:
   - platform: homeassistant
     id: homeassistant_time
   - platform: sntp
     id: sntp_time
-    on_time:
-      # cada 5 minutos
-      - seconds: 0
-        minutes: /5
-        then:
-          - script.execute: refresh_nightlight
 
 sun:
   latitude: ${latitude}
   longitude: ${longitude}
-
-script:
-  - id: refresh_nightlight
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: 'return "${nightlight}" == "on";'
-          then:
-            - if:
-                condition:
-                  - sun.is_below_horizon:
-                then:
-                  - switch.turn_on: nightlight
-                else:
-                  - switch.turn_off: nightlight

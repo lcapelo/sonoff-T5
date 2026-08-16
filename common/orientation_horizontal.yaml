@@ -1,13 +1,6 @@
-# Orientacion horizontal (panel rotado 90 grados respecto al vertical).
-# Cada lado se renombra rotando 90 grados en sentido horario: lo que en
-# vertical es "Arriba" pasa a nombrarse "Derecha", "Derecha" pasa a "Abajo",
-# "Abajo" pasa a "Izquierda" e "Izquierda" pasa a "Arriba". El swipe nativo
-# del panel (izquierda/derecha) vuelve a coincidir directamente con el gesto
-# fisico left/right.
+# Orientacion horizontal (panel rotado 90 grados respecto al vertical). El
+# swipe nativo del panel (izquierda/derecha) coincide directamente con el
+# gesto fisico left/right.
 substitutions:
-  led_top_name: "Led Derecha"
-  led_right_name: "Led Abajo"
-  led_bottom_name: "Led Izquierda"
-  led_left_name: "Led Arriba"
   swipe_a_name: "Swipe left"
   swipe_b_name: "Swipe right"

@@ -40,4 +40,6 @@ packages:
   ble_tracker: !include common/ble_tracker.yaml
   bluetooth_proxy: !include common/bluetooth_proxy.yaml
   web_server: !include common/web_server.yaml
-  nightlight_auto: !include common/nightlight_auto.yaml
+  # nightlight_auto: actualmente sin efecto (ver comentario en el archivo),
+  # se deja comentada hasta que se rediseñe a que aplica el modo nocturno.
+  # nightlight_auto: !include common/nightlight_auto.yaml

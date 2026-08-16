@@ -1,12 +1,7 @@
 # Orientacion vertical (panel mas alto que ancho - montaje de hoy).
-# Los nombres de lado coinciden tal cual con el diagrama de base.yaml, y los
-# sensores de swipe se nombran segun el eje vertical (arriba/abajo), ya que un
-# swipe nativo del panel (izquierda/derecha) se percibe como un gesto
+# Los sensores de swipe se nombran segun el eje vertical (arriba/abajo), ya
+# que un swipe nativo del panel (izquierda/derecha) se percibe como un gesto
 # arriba/abajo cuando el panel esta montado en vertical.
 substitutions:
-  led_top_name: "Led Arriba"
-  led_bottom_name: "Led Abajo"
-  led_left_name: "Led Izquierda"
-  led_right_name: "Led Derecha"
   swipe_a_name: "Swipe Top"
   swipe_b_name: "Swipe Bottom"
