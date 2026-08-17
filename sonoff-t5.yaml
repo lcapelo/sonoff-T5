@@ -6,6 +6,7 @@ substitutions:
   name: "sonoff-t5-sala"
   friendly_name: "Sonoff T5 Sala"
   ip: "XX.XX.XX.XX"
+  gateway: "XX.XX.XX.XX"
 
   relay_count: "3"
 
