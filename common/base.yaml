@@ -317,8 +317,21 @@ switch:
     internal: true
     restore_mode: ALWAYS_ON
 
+button:
+  ###--- Restart ---###
   - platform: restart
-    name: "${friendly_name} Restart"
+    name: "Restart"
+    entity_category: diagnostic
+
+  ###--- Restart (Safe Mode) ---###
+  - platform: safe_mode
+    name: "Restart (Safe Mode)"
+    entity_category: diagnostic
+
+  ###--- Shutdown ---###
+  - platform: shutdown
+    name: "Shutdown"
+    entity_category: diagnostic
 
 light:
   - platform: neopixelbus
