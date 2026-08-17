@@ -16,7 +16,7 @@ LEDs en GPIO13).
 sonoff-t5.yaml           # entrada: substituciones de TU dispositivo + packages
 common/
   base.yaml              # todo lo independiente del nº de canales (wifi, api, ota,
-                          # uart, tira de LEDs, audio, gestos globales, nightlight)
+                          # uart, tira de LEDs + sus effects de gestos, audio)
   channels_1.yaml         # 1 canal
   channels_2.yaml         # 2 canales
   channels_3.yaml         # 3 canales (tu hardware real; segmentos LED calibrados)
@@ -63,8 +63,8 @@ copia `sonoff-t5.yaml` a un archivo nuevo y cambia `name`, `friendly_name`,
 > confirmado un T5 físico de 4 botones. `channels_4.yaml` define el 4to relé
 > (GPIO23, documentado en el SDK de Sonoff) y reparte `touch.x` en 4 zonas
 > iguales, pero es una extrapolación sin calibrar contra hardware real. Si
-> tienes esa variante, ajusta los rangos de `light: partition` y los umbrales
-> de `touch.x` en ese archivo.
+> tienes esa variante, ajusta los segmentos de LED del script `led_on_touch` y
+> los umbrales de `touch.x` en ese archivo.
 
 ## Nombrar los canales
 
@@ -97,29 +97,74 @@ normal.
 Ejemplo de uso en HA: una automatización que, mientras `Long <canal>` esté
 `on`, suba o baje el brillo de una luz dimerizable cada cierto intervalo.
 
-*(Esto es distinto del "Long press (5s)" global del panel, que viene del
-componente táctil y no distingue en qué botón ocurrió — útil para gestos
-generales, no por canal.)*
+> El componente táctil también tiene su propio long-press "nativo" de 5s
+> (`on_long_touch_release`), pero no lo exponemos como sensor aparte: se
+> trata igual que un `on_release` normal, así que si mantenés apretado más de
+> 5s seguís viendo el mismo `Long <canal>` (arrancado a los
+> `${long_press_time}` iniciales) hasta que soltás — sin un sensor global
+> "Long press (5s)" tapándolo a mitad de camino.
+
+> **Limitación de hardware conocida**: el multi-touch (`Multi touch`) solo se
+> clasifica en el chip táctil al **soltar** los dedos, nunca mientras se
+> mantienen apoyados. Si sostenés un multi-touch más de `${long_press_time}`,
+> vas a ver el `Long <canal>` del primer dedo prenderse brevemente *durante*
+> el toque (se limpia correctamente recién al soltar). No hay forma de evitar
+> ese parpadeo por software — el protocolo no expone una señal de "multi-touch
+> en curso".
 
 ## Qué se mantiene del T5 original
 
 - **Audio**: altavoz I2S (`media_player`) igual que antes.
 - **Luz ambiente**: la tira de 32 LEDs con todos sus efectos direccionables
   (rainbow, pulse, scan, twinkle, fireworks, flicker), controlable como luz
-  normal en HA. Los canales usan particiones de esa misma tira como indicador
-  de estado (encendido = `button_color`, apagado con nightlight =
-  `nightlight_color`).
+  normal en HA. Es la **única** dueña de los 32 LEDs: no hay ningún indicador
+  persistente de estado por canal pisándole segmentos (ver "Feedback visual de
+  gestos" abajo para el porqué).
 
 ## Qué se agregó del proyecto de referencia
 
 - Componente táctil `tx_ultimate_touch` (vendorizado localmente, ver sección de
   arriba) en vez del componente local `components/touch_panel` (que solo
-  soportaba 3 botones fijos). Da swipe izquierda/derecha, multi-touch y
-  long-press global, además de la posición cruda del toque para poder
+  soportaba 3 botones fijos). Da swipe izquierda/derecha, multi-touch y un
+  long-press nativo de 5s, además de la posición cruda del toque para poder
   generalizar a 1-4 canales.
-- Nightlight automático según la posición del sol (`sun` + `latitude`/`longitude`).
-- Feedback visual (flash breve en la tira) al tocar, hacer swipe, multi-touch o
-  long-press global.
+- Feedback visual de gestos en la tira (ver sección propia abajo).
+
+## Feedback visual de gestos
+
+Tocar, mantener, hacer swipe o multi-touch dispara un efecto **transitorio**
+sobre "Luz Ambiente" (`rgb_light`), sin tocar ninguna partición ni entidad
+aparte:
+
+- **Toque corto**: al soltar, el segmento de LEDs de ese canal (los mismos
+  rangos que antes tenían una partición propia) parpadea en `touch_color`
+  (azul por defecto) durante `touch_time` (1s por defecto).
+- **Long-press** (mantener > `long_press_time`): el mismo segmento pasa a
+  `long_press_color` (rojo) y se queda encendido mientras se sostiene el dedo,
+  apagándose recién al soltar.
+- **Full-touch** (multi-touch): toda la tira parpadea en `touch_color` durante
+  `touch_time`.
+- **Swipe izquierda/derecha**: dos "víboras" de 4 LEDs salen desde el lado del
+  panel donde se hizo el swipe y recorren cada mitad del anillo hasta
+  encontrarse del otro lado (al revés según la dirección), en `swipe_left_color`/
+  `swipe_right_color` durante `swipe_time_ms`.
+
+Al terminar cada efecto, "Luz Ambiente" queda exactamente como estaba antes
+(mismo color/brillo/on-off) — no hace falta que esté encendida para que el
+flash se vea. Todos los colores/tiempos son substituciones en `base.yaml`.
+
+Para desactivar por completo este aviso visual (tocar sigue conmutando el relé
+y avisando a HA igual, sin ningún flash de LED):
+
+```yaml
+substitutions:
+  visual_feedback: "false"
+```
+
+> **Nightlight automático**: existía un modo nocturno (`common/nightlight_auto.yaml`,
+> vía `sun`) que atenuaba el indicador de estado por canal al anochecer. Como
+> ese indicador ya no existe, quedó **sin efecto** (ver comentario en ese
+> archivo) y su import está comentado por defecto en `sonoff-t5.yaml`.
 
 ## Qué se quitó (específico de la instalación anterior del usuario)
 
@@ -128,8 +173,9 @@ de `light.hallway_light` / `light.toilet_light` / `input_boolean.gone_to_bed`
 disparando un botón `light_relays` que cambiaba el color de la luz ambiente
 según si algún relé estaba encendido). Se quitó de la plantilla por ser
 específico de esa instalación; si lo quieres de vuelta, es un `text_sensor:
-platform: homeassistant` + `on_value` como antes, ahora llamando a
-`script.execute: refresh_led_default` en vez de `button.press: light_relays`.
+platform: homeassistant` + `on_value` que llame `light.turn_on: id: rgb_light`
+directamente (ya no existe un `refresh_led_default` que pinte segmentos por
+canal — ver "Feedback visual de gestos" arriba).
 
 ## Verificar antes de flashear
 
